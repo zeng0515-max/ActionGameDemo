@@ -1,0 +1,68 @@
+# Unity 3D Action Game Demo - .gitignore
+
+# Unity 生成的缓存与库（可再生，不要提交）
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+
+# MemoryCaptures 会占用大量空间
+/[Mm]emoryCaptures/
+
+# Asset meta data 应该提交，但推导出的 .cs.meta 视情况
+# *.cs.meta 默认提交
+
+# 构建产物
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Crashlytics 生成的文件
+crashlytics-build.properties
+sysinfo.txt
+
+# MonoDevelop / Visual Studio 生成的文件
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity 生成解决方案时产生的目录
+.vs/
+.idea/
+
+# 操作系统生成
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 备份文件
+*~.unity
+*.swp
+*.bak
+
+# Codely CLI
+/.codely-cli/
+/.codely/
+/.codelyignore
+/.com-unity-codely.json
+/mem-log/
+/screenshots/
