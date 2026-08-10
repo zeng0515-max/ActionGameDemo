@@ -51,7 +51,7 @@ ActionGameDemo 是 Realtime Combat Server
 | 网络编程/高并发 | 四.2 Net 网络层、五.2 帧同步机制 |
 | 服务端架构设计 | 四.3 Room、四.4 Battle |
 | 稳定性与安全 | 四.9 AntiCheat、四.12 Audit |
-| 数据库/中间件 | P0 待补齐 |
+| 数据库/中间件 | persistence：MatchResultRepository、RoomStateCache |
 | 性能优化 | 十六 关键性能考量 |
 | AI 应用 | 四.10 LLM 服务 |
 

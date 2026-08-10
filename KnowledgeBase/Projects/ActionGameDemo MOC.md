@@ -56,7 +56,7 @@ status: Doing
 | 服务端架构设计 | Room、Battle、Replay、AntiCheat |
 | 稳定性与安全 | 三层反作弊、审计、断线重连 |
 | 性能优化 | 压测与 benchmark（P0） |
-| 数据库/中间件 | MySQL/Redis（P0） |
+| 数据库/中间件 | MySQL/Redis 持久化（已接入，可降级内存） |
 | 监控与运维 | 指标/日志/告警（P1） |
 | 工程化 | JUnit、Docker、文档 |
 | AI 加分 | LLM 复盘与异常研判 |

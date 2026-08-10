@@ -27,7 +27,7 @@ Unity 客户端作为验证 Demo
 |---|---|---|
 | 客户端 | Unity 2022.3 + C# | Unreal Engine 5.3 |
 | 服务端 | Java 17 + Netty + WebSocket | Go 微服务 + gRPC |
-| 数据 | 暂未持久化 | Redis + PostgreSQL |
+| 数据 | MySQL/Redis 已接入，可降级内存 | Redis + PostgreSQL |
 | 定位 | 实时对战服务端框架 | 完整多人游戏产品 |
 
 ## 十三阶段里程碑时间线

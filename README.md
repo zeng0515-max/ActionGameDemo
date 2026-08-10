@@ -19,6 +19,7 @@ Unity 客户端不是项目主体
 - WebSocket 二进制协议与 Netty Pipeline
 - 服务端权威战斗计算
 - 房间管理、帧调度与断线重连
+- MySQL 对局结果持久化与 Redis 房间状态缓存
 - 三层实时反作弊检测
 - AI 敌人 FSM 行为系统
 - Boss 多阶段狂暴切换
@@ -313,6 +314,6 @@ Unity Test Framework
 
 按 JD 能力点分阶段补齐：
 
-- P0：MySQL/Redis 持久化、压测工具与 benchmark 报告
+- P0：MySQL/Redis 持久化（已完成）、压测工具与 benchmark 报告
 - P1：可观测性（指标/日志/告警）、CI/CD
 - P2：分布式部署、水平扩容、K8s
