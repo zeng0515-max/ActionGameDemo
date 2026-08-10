@@ -1,0 +1,29 @@
+{
+  "title": "ActionGameDemo Server",
+  "panels": [
+    {
+      "title": "Active Connections",
+      "targets": [
+        {
+          "expr": "actiongame_connections_active"
+        }
+      ]
+    },
+    {
+      "title": "Messages Received",
+      "targets": [
+        {
+          "expr": "rate(actiongame_messages_received_total[1m])"
+        }
+      ]
+    },
+    {
+      "title": "Server Errors",
+      "targets": [
+        {
+          "expr": "increase(actiongame_errors_total[1m])"
+        }
+      ]
+    }
+  ]
+}
