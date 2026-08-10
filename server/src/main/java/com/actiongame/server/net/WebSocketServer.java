@@ -5,6 +5,7 @@ import com.actiongame.server.net.codec.MessageDecoder;
 import com.actiongame.server.net.codec.MessageEncoder;
 import com.actiongame.server.net.handler.HandlerRegistry;
 import com.actiongame.server.net.session.ConnectionManager;
+import com.actiongame.server.observability.MetricsChannelHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -38,15 +39,22 @@ public class WebSocketServer {
     private final int port;
     private final ConnectionManager connectionManager;
     private final HandlerRegistry handlerRegistry;
+    private final com.actiongame.server.audit.ServerMetrics metrics;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
 
     public WebSocketServer(int port, ConnectionManager connectionManager, HandlerRegistry handlerRegistry) {
+        this(port, connectionManager, handlerRegistry, new com.actiongame.server.audit.ServerMetrics());
+    }
+
+    public WebSocketServer(int port, ConnectionManager connectionManager, HandlerRegistry handlerRegistry,
+                           com.actiongame.server.audit.ServerMetrics metrics) {
         this.port = port;
         this.connectionManager = connectionManager;
         this.handlerRegistry = handlerRegistry;
+        this.metrics = metrics;
     }
 
     public void start() throws InterruptedException {
@@ -81,8 +89,11 @@ public class WebSocketServer {
                         pipeline.addLast("decoder", new MessageDecoder());
                         pipeline.addLast("encoder", new MessageEncoder());
 
+                        // 指标采集
+                        pipeline.addLast("metrics", new MetricsChannelHandler(metrics));
+
                         // 业务处理器
-                        pipeline.addLast("serverHandler", new WebSocketServerHandler(connectionManager, handlerRegistry));
+                        pipeline.addLast("serverHandler", new WebSocketServerHandler(connectionManager, handlerRegistry, metrics));
                     }
                 });
 
