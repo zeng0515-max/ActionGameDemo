@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: actiongame-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: actiongame
+      MYSQL_DATABASE: actiongame
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pactiongame"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: actiongame-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  game-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: actiongame-server
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-9090}:9090"
+    environment:
+      - SERVER_PORT=9090
+      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+      - MATCH_DB_URL=jdbc:mysql://mysql:3306/actiongame?useSSL=false&serverTimezone=UTC
+      - MATCH_DB_USER=root
+      - MATCH_DB_PASSWORD=actiongame
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      # Persistent logs
+      - server-logs:/app/logs
+      # Replay storage
+      - server-replays:/app/replays
+      # External config (optional, mount to override defaults)
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9090/game"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  server-logs:
+    driver: local
+  server-replays:
+    driver: local
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
