@@ -46,10 +46,12 @@ public class FrameScheduler {
         running = false;
         if (schedulerThread != null) {
             schedulerThread.interrupt();
-            try {
-                schedulerThread.join(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            if (schedulerThread != Thread.currentThread()) {
+                try {
+                    schedulerThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
         log.info("FrameScheduler stopped");

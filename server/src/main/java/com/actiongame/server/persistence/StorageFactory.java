@@ -16,6 +16,7 @@ public final class StorageFactory {
             hikariConfig.setJdbcUrl(config.getMatchDbUrl());
             hikariConfig.setUsername(config.getMatchDbUser());
             hikariConfig.setPassword(config.getMatchDbPassword());
+            hikariConfig.setConnectionTimeout(3000);
             hikariConfig.setMaximumPoolSize(10);
             return new JdbcMatchResultRepository(new HikariDataSource(hikariConfig));
         }

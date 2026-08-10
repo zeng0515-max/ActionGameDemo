@@ -1700,13 +1700,11 @@ FrameSnapshotManager 同时承担
 
 ### 18.7 测试覆盖
 
-客户端无单元测试
-核心逻辑（如 BinarySerializer）缺乏验证
-建议补充 Unity Test Framework 测试
+客户端现有 14 个 C# 协议测试
+核心逻辑（如 BinarySerializer）仍可补充更多覆盖
 
-服务端测试集中于单个类
-缺少集成测试验证端到端流程
-建议补充 WebSocket 集成测试
+服务端已有端到端集成、并发边界与压测测试
+新增 WebSocket 压测工具与 benchmark 报告
 
 ## 十九、扩展路线图
 
