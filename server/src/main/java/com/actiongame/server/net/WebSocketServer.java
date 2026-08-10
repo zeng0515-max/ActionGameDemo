@@ -88,7 +88,7 @@ public class WebSocketServer {
 
         ChannelFuture future = bootstrap.bind(port).sync();
         serverChannel = future.channel();
-        log.info("WebSocket server listening on ws://0.0.0.0:{}{}", port, GameConstants.WEBSOCKET_PATH);
+        log.info("WebSocket server listening on ws://0.0.0.0:{}{}", getPort(), GameConstants.WEBSOCKET_PATH);
     }
 
     public int getPort() {
