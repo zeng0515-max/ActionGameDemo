@@ -314,6 +314,6 @@ Unity Test Framework
 
 按 JD 能力点分阶段补齐：
 
-- P0：MySQL/Redis 持久化（已完成）、压测工具与 benchmark 报告
+- P0：MySQL/Redis 持久化、压测工具与 benchmark 报告（已完成）
 - P1：可观测性（指标/日志/告警）、CI/CD
 - P2：分布式部署、水平扩容、K8s
