@@ -1,0 +1,17 @@
+{
+    "name": "ActionGameDemo.Client",
+    "rootNamespace": "ActionGameDemo.Client",
+    "references": [
+        "GUID:Unity.RenderPipelines.Universal.Runtime",
+        "ActionGameDemo.Protocol"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

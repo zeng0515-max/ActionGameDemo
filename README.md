@@ -63,6 +63,7 @@ Unity 客户端不是项目主体
 
 - Unity 2022.3 LTS
 - C# 9.0
+- IMGUI 验证台（协议指标 / 一键端到端验证）
 - WebSocket 原生实现
 - 自定义二进制序列化
 - TextMeshPro UI
@@ -95,6 +96,7 @@ ActionGameDemo/
 │   │   ├── Core/              # 核心管理器
 │   │   ├── Protocol/          # 协议序列化
 │   │   ├── Client/Network/    # WebSocket 网络层
+│   │   ├── Client/Diagnostics/ # 验证台面板与诊断指标
 │   │   ├── Player/            # 输入处理
 │   │   ├── Presentation/      # 表现层驱动
 │   │   ├── Combat/            # VFX 管理
@@ -167,6 +169,8 @@ docker-compose up -d
 2. 打开场景 `Assets/Scenes/Test_Stage0_Movement.unity`
 3. 确认服务端已启动
 4. 点击 Play 按钮
+5. 验证台自动创建，可查看连接状态、RTT、帧速率、协议日志
+6. 点击 `Auto Validate` 一键执行登录 → 入房 → 动作 → 帧流 → HTTP 指标验证
 
 蓝色胶囊 = 玩家
 红色胶囊 = 普通敌人
@@ -314,6 +318,9 @@ Unity Test Framework
 
 - [KUBERNETES.md](docs/deployment/KUBERNETES.md)
   Kubernetes 部署、水平扩容边界与房间路由前置
+
+- [CLIENT_VALIDATION_CONSOLE.md](docs/client/CLIENT_VALIDATION_CONSOLE.md)
+  Unity 验证客户端设计、验证项与 JD 能力对应关系
 
 - [AUDIT_REPORT_PHASE1_7.md](AUDIT_REPORT_PHASE1_7.md)
   代码审计报告与修复记录
