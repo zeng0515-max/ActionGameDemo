@@ -19,6 +19,8 @@ Unity 客户端不是项目主体
 - WebSocket 二进制协议与 Netty Pipeline
 - 服务端权威战斗计算
 - 房间管理、帧调度与断线重连
+- 可配置登录鉴权 token
+- 跨节点房间匹配与负载分配
 - MySQL 对局结果持久化与 Redis 房间状态缓存
 - Prometheus 指标、健康检查与告警
 - GitHub Actions 自动构建测试
@@ -27,7 +29,7 @@ Unity 客户端不是项目主体
 - Boss 多阶段狂暴切换
 - 战斗录像回放与结构化审计
 - LLM 战斗复盘分析
-- 169 个单元测试覆盖
+- 192 个单元测试覆盖
 - Docker 一键部署
 
 ### 架构红线
@@ -81,6 +83,7 @@ Unity 客户端不是项目主体
 
 - Docker 多阶段构建
 - Docker Compose 编排
+- Kubernetes Kustomize 部署（base + dev/prod overlay）
 - 约 200MB 镜像体积
 
 ## 四、项目结构
@@ -288,7 +291,7 @@ cd server
 mvn test
 ```
 
-- 总计 169 个单元测试
+- 总计 192 个单元测试
 - 覆盖：战斗/AI/Buff/房间
 - 覆盖：反作弊/审计/回放
 - 覆盖：全链路集成
@@ -309,6 +312,9 @@ Unity Test Framework
 - [DOCKER_README.md](DOCKER_README.md)
   容器化部署与运维指南
 
+- [KUBERNETES.md](docs/deployment/KUBERNETES.md)
+  Kubernetes 部署、水平扩容边界与房间路由前置
+
 - [AUDIT_REPORT_PHASE1_7.md](AUDIT_REPORT_PHASE1_7.md)
   代码审计报告与修复记录
 
@@ -318,4 +324,4 @@ Unity Test Framework
 
 - P0：MySQL/Redis 持久化、压测工具与 benchmark 报告（已完成）
 - P1：可观测性（指标/日志/告警）、CI/CD（已完成）
-- P2：分布式部署、水平扩容、K8s
+- P2：分布式部署、水平扩容、K8s（K8s 清单、NODE_ID 注册与房间所有权路由已完成，网关与房间迁移待补）

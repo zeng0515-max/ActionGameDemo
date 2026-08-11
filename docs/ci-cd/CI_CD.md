@@ -15,6 +15,9 @@ GitHub Actions 工作流：`.github/workflows/ci.yml`
 2. 安装 JDK 17
 3. 缓存 Maven 依赖
 4. 在 `server/` 目录执行 `mvn -B test`
+5. 安装 kubectl
+6. 用 kubectl kustomize 渲染 dev/prod 两套 K8s manifests
+7. 用 kubeconform 对渲染结果做离线 schema 校验
 
 ## 后续 CD
 
@@ -23,3 +26,4 @@ CD 阶段可基于 Docker 镜像构建与推送，建议后续接入：
 - `docker build` 多阶段构建
 - 镜像版本打标签并推送到镜像仓库
 - 部署到测试环境并执行健康检查
+- 用 Kustomize overlay 按环境替换镜像标签与副本数

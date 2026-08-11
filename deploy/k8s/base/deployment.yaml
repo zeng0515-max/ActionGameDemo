@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: game-server
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+spec:
+  replicas: 2
+  serviceName: game-server-headless
+  selector:
+    matchLabels:
+      app: actiongame-server
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  template:
+    metadata:
+      labels:
+        app: actiongame-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        runAsNonRoot: true
+      containers:
+        - name: game-server
+          image: actiongame-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: game
+              containerPort: 9090
+              protocol: TCP
+            - name: metrics
+              containerPort: 9091
+              protocol: TCP
+          env:
+            - name: SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: game-server-config
+                  key: SERVER_PORT
+            - name: METRICS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: game-server-config
+                  key: METRICS_PORT
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: game-server-config
+                  key: JAVA_OPTS
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_ADDRESS_TEMPLATE
+              valueFrom:
+                configMapKeyRef:
+                  name: game-server-config
+                  key: NODE_ADDRESS_TEMPLATE
+            - name: AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: game-server-secrets
+                  key: AUTH_TOKEN
+            - name: MATCH_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: game-server-secrets
+                  key: MATCH_DB_URL
+            - name: MATCH_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: game-server-secrets
+                  key: MATCH_DB_USER
+            - name: MATCH_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: game-server-secrets
+                  key: MATCH_DB_PASSWORD
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: game-server-secrets
+                  key: REDIS_PASSWORD
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - |
+                    curl -sf -X POST http://127.0.0.1:9091/admin/drain || true
+                    curl -sf -X POST http://127.0.0.1:9091/admin/migrate-all || true
+                    for i in $(seq 1 60); do
+                      active=$(curl -sf http://127.0.0.1:9091/admin/status | sed 's/.*"activeRooms":\([0-9][0-9]*\).*/\1/')
+                      if [ -z "$active" ] || [ "$active" = "0" ]; then exit 0; fi
+                      sleep 1
+                    done
+                    exit 0
+          startupProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: metrics
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+            - name: replays
+              mountPath: /app/replays
+      volumes:
+        - name: logs
+          emptyDir: {}
+        - name: replays
+          emptyDir: {}

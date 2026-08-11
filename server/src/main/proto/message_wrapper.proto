@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package actiongame.protocol;
+
+option java_package = "com.actiongame.server.proto";
+option java_outer_classname = "MessageWrapperProto";
+
+// 消息ID枚举 (文档4.10节范围分配)
+enum MessageId {
+  MESSAGE_UNKNOWN = 0;
+
+  // 登录 1001-1099
+  LOGIN_REQ = 1001;
+  LOGIN_RESP = 1002;
+
+  // 房间 1101-1199
+  JOIN_ROOM_REQ = 1101;
+  JOIN_ROOM_RESP = 1102;
+  LEAVE_ROOM_REQ = 1103;
+  PLAYER_JOIN_NOTIFY = 1104;
+  PLAYER_LEAVE_NOTIFY = 1105;
+
+  // 战斗 1201-1299
+  PLAYER_ACTION_REQ = 1201;
+  PLAYER_ACTION_RESP = 1202;
+  BATTLE_FRAME_NOTIFY = 1203;
+  DELTA_FRAME_NOTIFY = 1204;
+  BATTLE_START_NOTIFY = 1205;
+  BATTLE_END_NOTIFY = 1206;
+
+  // 系统 2001-2099
+  HEARTBEAT_REQ = 2001;
+  HEARTBEAT_RESP = 2002;
+
+  // 回放 3001-3099
+  REPLAY_REQ = 3001;
+  REPLAY_RESP = 3002;
+}
+
+// 消息包装器 (每条WebSocket消息的外层信封)
+message MessageWrapper {
+  MessageId message_id = 1;
+  int32 protocol_version = 2;
+  int64 sequence_id = 3;     // 自增序列号 (防重放/防丢序)
+  bytes payload = 4;          // 内层Protobuf消息序列化后的bytes
+}

@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-server-node-0
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: game-server-0
+  ports:
+    - name: game
+      port: 9090
+      targetPort: game
+      protocol: TCP
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-server-node-1
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: game-server-1
+  ports:
+    - name: game
+      port: 9090
+      targetPort: game
+      protocol: TCP
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-server-node-2
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: game-server-2
+  ports:
+    - name: game
+      port: 9090
+      targetPort: game
+      protocol: TCP
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP

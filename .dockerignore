@@ -1,0 +1,49 @@
+# Build artifacts
+server/target/
+server/logs/
+server/*.log
+server/server.log
+server/server_err.log
+
+# Unity (not needed in server container)
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+screenshots/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.iml
+
+# Codely
+.codely-cli/
+.codely/
+.codelyignore
+.com-unity-codely.json
+mem-log/
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Docs (not needed in container)
+*.md
+*.docx
+AUDIT_REPORT_*

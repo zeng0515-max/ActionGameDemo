@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: game-server
+  namespace: actiongame
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: actiongame-server
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: actiongame-server
+      containers:
+        - name: game-server
+          image: actiongame-server:prod
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi

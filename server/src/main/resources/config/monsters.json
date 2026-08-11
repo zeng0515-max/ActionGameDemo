@@ -1,0 +1,28 @@
+[
+  {
+    "enemyName": "Goblin",
+    "maxHealth": 50,
+    "attackPower": 5,
+    "defense": 2,
+    "moveSpeed": 3,
+    "detectionRange": 10,
+    "attackRange": 2,
+    "attackCooldown": 3,
+    "patrolRadius": 5,
+    "fleeThreshold": 0.2,
+    "viewAngle": 90
+  },
+  {
+    "enemyName": "Boss",
+    "maxHealth": 500,
+    "attackPower": 15,
+    "defense": 8,
+    "moveSpeed": 4,
+    "detectionRange": 15,
+    "attackRange": 3,
+    "attackCooldown": 5,
+    "patrolRadius": 8,
+    "fleeThreshold": 0.0,
+    "viewAngle": 120
+  }
+]

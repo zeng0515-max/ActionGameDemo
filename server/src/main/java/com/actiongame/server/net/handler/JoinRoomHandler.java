@@ -3,6 +3,8 @@ package com.actiongame.server.net.handler;
 import com.actiongame.server.constant.GameConstants;
 import com.actiongame.server.domain.character.CharacterStats;
 import com.actiongame.server.domain.character.PlayerCharacter;
+import com.actiongame.server.matchmaking.GlobalMatchmaker;
+import com.actiongame.server.matchmaking.Matchmaker;
 import com.actiongame.server.net.session.ConnectionManager;
 import com.actiongame.server.net.session.GameSession;
 import com.actiongame.server.net.util.BinaryCodec;
@@ -24,17 +26,37 @@ import org.slf4j.LoggerFactory;
 public class JoinRoomHandler implements IMessageHandler {
 
     private static final Logger log = LoggerFactory.getLogger(JoinRoomHandler.class);
+    private static final int CODE_ROOM_REDIRECT = -3;
+    private static final int CODE_NODE_DRAINING = -4;
 
     private final ConnectionManager connectionManager;
     private final com.actiongame.server.audit.AuditLoggerImpl auditLogger;
+    private final RoomManager roomManager;
+    private final Matchmaker matchmaker;
 
     public JoinRoomHandler(ConnectionManager connectionManager) {
-        this(connectionManager, null);
+        this(connectionManager, null, RoomManager.getInstance());
     }
 
     public JoinRoomHandler(ConnectionManager connectionManager, com.actiongame.server.audit.AuditLoggerImpl auditLogger) {
+        this(connectionManager, auditLogger, RoomManager.getInstance());
+    }
+
+    public JoinRoomHandler(ConnectionManager connectionManager,
+                           com.actiongame.server.audit.AuditLoggerImpl auditLogger,
+                           RoomManager roomManager) {
+        this(connectionManager, auditLogger, roomManager,
+            new GlobalMatchmaker(roomManager, roomManager.getNodeRegistry(), roomManager.getRoomRouter()));
+    }
+
+    public JoinRoomHandler(ConnectionManager connectionManager,
+                           com.actiongame.server.audit.AuditLoggerImpl auditLogger,
+                           RoomManager roomManager,
+                           Matchmaker matchmaker) {
         this.connectionManager = connectionManager;
         this.auditLogger = auditLogger;
+        this.roomManager = roomManager;
+        this.matchmaker = matchmaker;
     }
 
     @Override
@@ -46,7 +68,7 @@ public class JoinRoomHandler implements IMessageHandler {
     public void handle(ChannelHandlerContext ctx, MessageWrapper wrapper, byte[] payload) throws Exception {
         GameSession session = connectionManager.getSession(ctx.channel());
         if (session == null || !session.isAuthenticated()) {
-            sendJoinRoomResp(ctx, wrapper, -1, "", -1, 0);
+            sendJoinRoomResp(ctx, wrapper, -1, "", -1, 0, "", "");
             return;
         }
 
@@ -57,13 +79,52 @@ public class JoinRoomHandler implements IMessageHandler {
 
         // 安全: 使用 session 的 playerId, 不信任客户端传入
         String playerId = session.getPlayerId();
+        RoomManager roomManager = this.roomManager;
 
         if (roomId == null || roomId.isEmpty()) {
-            roomId = GameConstants.DEFAULT_ROOM_ID;
+            if (roomManager.isDraining()) {
+                sendJoinRoomResp(ctx, wrapper, CODE_NODE_DRAINING, "", -1, 0, "", "");
+                return;
+            }
+            roomId = matchmaker.allocateRoom(playerId);
         }
 
         // 获取或创建房间
-        BattleRoom room = RoomManager.getInstance().getOrCreateRoom(roomId);
+        String roomOwner = roomManager.getRoomOwner(roomId);
+        if (roomOwner != null && !roomOwner.equals(roomManager.getNodeId())) {
+            if (!roomManager.releaseStaleRoom(roomId)) {
+                sendJoinRoomResp(ctx, wrapper, CODE_ROOM_REDIRECT, roomId, -1, 0,
+                    roomOwner, roomManager.resolveNodeAddress(roomOwner));
+                return;
+            }
+            roomOwner = roomManager.getRoomOwner(roomId);
+        }
+
+        if (roomOwner == null && !roomManager.isDraining()) {
+            roomManager.restoreRoomIfAvailable(roomId);
+            roomOwner = roomManager.getRoomOwner(roomId);
+            if (roomOwner != null && !roomOwner.equals(roomManager.getNodeId())) {
+                sendJoinRoomResp(ctx, wrapper, CODE_ROOM_REDIRECT, roomId, -1, 0,
+                    roomOwner, roomManager.resolveNodeAddress(roomOwner));
+                return;
+            }
+        }
+
+        if (roomManager.isDraining() && roomManager.getRoom(roomId) == null) {
+            sendJoinRoomResp(ctx, wrapper, CODE_NODE_DRAINING, roomId, -1, 0, "", "");
+            return;
+        }
+
+        BattleRoom room;
+        try {
+            room = roomManager.getOrCreateRoom(roomId);
+        } catch (IllegalStateException e) {
+            String owner = roomManager.getRoomOwner(roomId);
+            log.warn("Room {} is owned by another node: {}", roomId, owner);
+            sendJoinRoomResp(ctx, wrapper, CODE_ROOM_REDIRECT, roomId, -1, 0,
+                owner, owner == null ? "" : roomManager.resolveNodeAddress(owner));
+            return;
+        }
 
         // 创建玩家角色
         CharacterStats stats = new CharacterStats(100f, 10f, 5f, 5f, 0.1f, 1.5f);
@@ -71,7 +132,7 @@ public class JoinRoomHandler implements IMessageHandler {
 
         int entityId = room.addPlayer(character, session);
         if (entityId < 0) {
-            sendJoinRoomResp(ctx, wrapper, -2, roomId, -1, 0);
+            sendJoinRoomResp(ctx, wrapper, -2, roomId, -1, 0, "", "");
             return;
         }
 
@@ -79,7 +140,7 @@ public class JoinRoomHandler implements IMessageHandler {
         if (auditLogger != null) auditLogger.logPlayerJoinRoom(playerId, roomId, entityId);
 
         session.setRoomId(roomId);
-        sendJoinRoomResp(ctx, wrapper, 0, roomId, entityId, (int) room.getCurrentFrameIndex());
+        sendJoinRoomResp(ctx, wrapper, 0, roomId, entityId, (int) room.getCurrentFrameIndex(), "", "");
 
         // 如果房间还没开始战斗, 生成怪物并自动开始
         if (room.getStatus() == com.actiongame.server.room.RoomStatus.WAITING) {
@@ -132,15 +193,19 @@ public class JoinRoomHandler implements IMessageHandler {
     }
 
     private void sendJoinRoomResp(ChannelHandlerContext ctx, MessageWrapper wrapper,
-                                   int code, String roomId, int entityId, int startFrameIndex) {
-        int respSize = 4 + 4 + BinaryCodec.stringSize(roomId) + 4 + 4;
+                                   int code, String roomId, int entityId, int startFrameIndex,
+                                   String redirectNodeId, String redirectAddress) {
+        int respSize = 4 + 4 + BinaryCodec.stringSize(roomId) + 4 + 4
+            + BinaryCodec.stringSize(redirectNodeId) + BinaryCodec.stringSize(redirectAddress);
         byte[] respPayload = new byte[respSize];
         int offset = 0;
         BinaryCodec.writeInt(respPayload, offset, GameConstants.PROTOCOL_VERSION); offset += 4;
         BinaryCodec.writeInt(respPayload, offset, code); offset += 4;
         BinaryCodec.writeString(respPayload, offset, roomId); offset += BinaryCodec.stringSize(roomId);
         BinaryCodec.writeInt(respPayload, offset, entityId); offset += 4;
-        BinaryCodec.writeInt(respPayload, offset, startFrameIndex);
+        BinaryCodec.writeInt(respPayload, offset, startFrameIndex); offset += 4;
+        BinaryCodec.writeString(respPayload, offset, redirectNodeId); offset += BinaryCodec.stringSize(redirectNodeId);
+        BinaryCodec.writeString(respPayload, offset, redirectAddress);
 
         MessageWrapper respWrapper = MessageHelper.wrap(
             MessageId.JOIN_ROOM_RESP,

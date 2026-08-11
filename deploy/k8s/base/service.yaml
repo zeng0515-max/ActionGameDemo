@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-server
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+spec:
+  type: ClusterIP
+  selector:
+    app: actiongame-server
+  ports:
+    - name: game
+      port: 9090
+      targetPort: game
+      protocol: TCP
+    - name: metrics
+      port: 9091
+      targetPort: metrics
+      protocol: TCP

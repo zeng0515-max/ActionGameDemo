@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package actiongame.protocol;
+
+import "common.proto";
+
+option java_package = "com.actiongame.server.proto";
+option java_outer_classname = "BattleProto";
+
+// 操作类型
+enum ActionTypeProto {
+  ACTION_NONE = 0;
+  ACTION_MOVE = 1;
+  ACTION_JUMP = 2;
+  ACTION_ATTACK = 3;
+  ACTION_SKILL = 4;
+  ACTION_ULTIMATE = 5;
+  ACTION_DODGE = 6;
+  ACTION_SWITCH_ELEMENT = 7;
+}
+
+// 单个操作 (操作意图, 不含判定结果)
+message PlayerAction {
+  ActionTypeProto action_type = 1;
+  int32 action_id = 2;
+  Vector3Proto move_direction = 3;
+  int32 skill_id = 4;
+  ElementTypeProto target_element = 5;
+  int32 target_entity_id = 6;
+  int64 timestamp = 7;
+}
+
+// 玩家操作请求 (每帧批量发送)
+message PlayerActionReq {
+  int32 protocol_version = 1;
+  string player_id = 2;
+  int32 client_frame_index = 3;
+  repeated PlayerAction actions = 4;
+}
+
+// 操作响应 (服务端权威结果)
+message PlayerActionResp {
+  int32 protocol_version = 1;
+  int32 code = 2;
+  string player_id = 3;
+  int32 client_frame_index = 4;
+  int32 server_frame_index = 5;
+  bool accepted = 6;
+  PlayerAction rejected_action = 7;
+  string reject_reason = 8;
+}
+
+// 战斗帧推送 (服务端权威快照)
+message BattleFrameNotify {
+  int32 protocol_version = 1;
+  BattleFrame frame = 2;
+}
+
+// 战斗开始通知
+message BattleStartNotify {
+  int32 protocol_version = 1;
+  string room_id = 2;
+  int64 start_time = 3;
+  int32 start_frame_index = 4;
+  repeated CharacterSnapshot characters = 5;
+}
+
+// 战斗结束通知
+message BattleEndNotify {
+  int32 protocol_version = 1;
+  string room_id = 2;
+  int32 result = 3;       // 0=defeat, 1=victory
+  int64 end_time = 4;
+  int32 total_frames = 5;
+  int32 kill_count = 6;
+  int64 total_damage = 7;
+}

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: game-server-config
+  namespace: actiongame
+  labels:
+    app.kubernetes.io/name: game-server
+    app.kubernetes.io/part-of: actiongame
+data:
+  SERVER_PORT: "9090"
+  METRICS_PORT: "9091"
+  LOG_LEVEL: "INFO"
+  JAVA_OPTS: "-Xms256m -Xmx384m -XX:+UseG1GC -XX:MaxGCPauseMillis=50"
+  NODE_ADDRESS_TEMPLATE: "${NODE_ID}.game-server-headless.actiongame.svc.cluster.local:9090"

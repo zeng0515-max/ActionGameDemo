@@ -30,3 +30,26 @@ jobs:
 
       - name: Run server tests
         run: mvn -B test
+
+  k8s-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Render dev manifests
+        run: kubectl kustomize deploy/k8s/overlays/dev > /tmp/actiongame-dev.yaml
+
+      - name: Validate dev manifests
+        run: docker run --rm -v /tmp:/workdir ghcr.io/yannh/kubeconform:v0.8.0 -strict -summary -output text /workdir/actiongame-dev.yaml
+
+      - name: Render prod manifests
+        run: kubectl kustomize deploy/k8s/overlays/prod > /tmp/actiongame-prod.yaml
+
+      - name: Validate prod manifests
+        run: docker run --rm -v /tmp:/workdir ghcr.io/yannh/kubeconform:v0.8.0 -strict -summary -output text /workdir/actiongame-prod.yaml

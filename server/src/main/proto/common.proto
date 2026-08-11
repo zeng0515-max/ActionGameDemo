@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package actiongame.protocol;
+
+option java_package = "com.actiongame.server.proto";
+option java_outer_classname = "CommonProto";
+option java_multiple_files = false;
+
+// 三维向量 (Y-Up, 与Unity一致)
+message Vector3Proto {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// 四元数旋转
+message QuaternionProto {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  float w = 4;
+}
+
+// 元素类型枚举
+enum ElementTypeProto {
+  ELEMENT_NONE = 0;
+  ELEMENT_FIRE = 1;
+  ELEMENT_ICE = 2;
+  ELEMENT_LIGHTNING = 3;
+  ELEMENT_WATER = 4;
+}
+
+// 角色状态枚举
+enum CharacterStateProto {
+  CHARACTER_IDLE = 0;
+  CHARACTER_MOVE = 1;
+  CHARACTER_JUMP = 2;
+  CHARACTER_ATTACK = 3;
+  CHARACTER_SKILL = 4;
+  CHARACTER_ULTIMATE = 5;
+  CHARACTER_DODGE = 6;
+  CHARACTER_HURT = 7;
+  CHARACTER_DEAD = 8;
+}
+
+// 实体类型
+enum EntityTypeProto {
+  ENTITY_PLAYER = 0;
+  ENTITY_MONSTER = 1;
+  ENTITY_BOSS = 2;
+  ENTITY_NPC = 3;
+}
+
+// 角色属性快照 (只读下发, 客户端禁止修改)
+message CharacterStatsSnapshot {
+  int32 max_health = 1;
+  int32 current_health = 2;
+  int32 max_energy = 3;
+  int32 current_energy = 4;
+  int32 attack_power = 5;
+  int32 defense = 6;
+  float move_speed = 7;
+  float critical_rate = 8;
+  float critical_damage_multiplier = 9;
+  int32 shield_amount = 10;
+}
+
+// Buff类型枚举
+enum BuffTypeProto {
+  BUFF_NONE = 0;
+  BUFF_ATTRIBUTE = 1;
+  BUFF_DOT = 2;
+  BUFF_CONTROL = 3;
+  BUFF_SHIELD = 4;
+}
+
+// Buff快照 (客户端仅显示, 不计算效果)
+message BuffSnapshot {
+  int32 buff_id = 1;
+  string buff_name = 2;
+  BuffTypeProto buff_type = 3;
+  float remaining_time = 4;
+  int32 stacks = 5;
+  ElementTypeProto element = 6;
+}
+
+// 角色完整快照
+message CharacterSnapshot {
+  int32 entity_id = 1;
+  int32 config_id = 2;
+  EntityTypeProto entity_type = 3;
+  Vector3Proto position = 4;
+  QuaternionProto rotation = 5;
+  CharacterStateProto state = 6;
+  CharacterStatsSnapshot stats = 7;
+  repeated BuffSnapshot buffs = 8;
+  int32 combo_step = 9;
+  bool is_invincible = 10;
+  int32 target_entity_id = 11;
+}
+
+// 伤害飘字事件 (数值由服务端计算)
+message DamageNumberEvent {
+  int32 target_entity_id = 1;
+  int32 damage = 2;
+  bool is_critical = 3;
+  ElementTypeProto element = 4;
+  Vector3Proto position = 5;
+}
+
+// VFX类型枚举
+enum VFXTypeProto {
+  VFX_NONE = 0;
+  VFX_SLASH = 1;
+  VFX_HIT_IMPACT = 2;
+  VFX_CRITICAL_HIT = 3;
+  VFX_DODGE = 4;
+  VFX_DEATH = 5;
+  VFX_HEAL = 6;
+  VFX_SKILL_CAST = 7;
+  VFX_ULTIMATE_CAST = 8;
+  VFX_ULTIMATE_CAST_FIRE = 9;
+  VFX_BUFF_APPEAR = 10;
+  VFX_SHIELD = 11;
+  VFX_FIRE_BURN = 12;
+  VFX_ICE_FREEZE = 13;
+  VFX_LIGHTNING_SHOCK = 14;
+  VFX_POISON = 15;
+}
+
+// 特效事件 (位置由服务端计算)
+message VFXEvent {
+  VFXTypeProto vfx_type = 1;
+  Vector3Proto position = 2;
+  QuaternionProto rotation = 3;
+  int32 follow_entity_id = 4;
+  Vector3Proto follow_offset = 5;
+  float duration = 6;
+}
+
+// 战斗帧快照 (服务端权威数据包)
+message BattleFrame {
+  int32 frame_index = 1;
+  int64 timestamp = 2;
+  string room_id = 3;
+  repeated CharacterSnapshot characters = 4;
+  repeated DamageNumberEvent damage_events = 5;
+  repeated VFXEvent vfx_events = 6;
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "buffName": "Attack Up",
+    "buffType": "ATTRIBUTE",
+    "description": "攻击力提升20%",
+    "duration": 10,
+    "stackingRule": "REFRESH_DURATION",
+    "maxStacks": 1,
+    "tickInterval": 1,
+    "tickValuePercent": 5,
+    "attributeType": "ATTACK_POWER",
+    "attributeModifier": 20,
+    "shieldValue": 0,
+    "relatedElement": "NONE"
+  },
+  {
+    "buffName": "Burn",
+    "buffType": "DOT",
+    "description": "每秒造成攻击力5%的火焰伤害",
+    "duration": 5,
+    "stackingRule": "REFRESH_DURATION",
+    "maxStacks": 1,
+    "tickInterval": 1,
+    "tickValuePercent": 5,
+    "attributeType": "ATTACK_POWER",
+    "attributeModifier": 0,
+    "shieldValue": 0,
+    "relatedElement": "FIRE"
+  },
+  {
+    "buffName": "Freeze",
+    "buffType": "CONTROL",
+    "description": "移速降低50%",
+    "duration": 3,
+    "stackingRule": "REFRESH_DURATION",
+    "maxStacks": 1,
+    "tickInterval": 1,
+    "tickValuePercent": 0,
+    "attributeType": "MOVE_SPEED",
+    "attributeModifier": -50,
+    "shieldValue": 0,
+    "relatedElement": "ICE"
+  },
+  {
+    "buffName": "Shield",
+    "buffType": "SHIELD",
+    "description": "吸收100点伤害",
+    "duration": 15,
+    "stackingRule": "STACK_STACKS",
+    "maxStacks": 3,
+    "tickInterval": 1,
+    "tickValuePercent": 0,
+    "attributeType": "ATTACK_POWER",
+    "attributeModifier": 0,
+    "shieldValue": 100,
+    "relatedElement": "NONE"
+  }
+]

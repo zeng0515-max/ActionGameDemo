@@ -53,9 +53,17 @@ public final class LoadTestPayloads {
         int code = BinaryCodec.readInt(payload, offset); offset += 4;
         String roomId = BinaryCodec.readString(payload, offset); offset += BinaryCodec.stringSize(roomId);
         int entityId = BinaryCodec.readInt(payload, offset); offset += 4;
-        int startFrameIndex = BinaryCodec.readInt(payload, offset);
-        return new JoinResult(protocolVersion, code, roomId, entityId, startFrameIndex);
+        int startFrameIndex = BinaryCodec.readInt(payload, offset); offset += 4;
+        String redirectNodeId = "";
+        if (offset < payload.length) {
+            redirectNodeId = BinaryCodec.readString(payload, offset);
+            offset += BinaryCodec.stringSize(redirectNodeId);
+        }
+        String redirectAddress = offset < payload.length ? BinaryCodec.readString(payload, offset) : "";
+        return new JoinResult(protocolVersion, code, roomId, entityId, startFrameIndex,
+            redirectNodeId, redirectAddress);
     }
 
-    public record JoinResult(int protocolVersion, int code, String roomId, int entityId, int startFrameIndex) {}
+    public record JoinResult(int protocolVersion, int code, String roomId, int entityId, int startFrameIndex,
+                             String redirectNodeId, String redirectAddress) {}
 }

@@ -25,6 +25,13 @@ public final class StorageFactory {
 
     public static RoomStateCache createRoomStateCache(StorageConfig config) {
         if (config.isRedisEnabled()) {
+            return new RedisRoomStateCache(createStringStore(config));
+        }
+        return new InMemoryRoomStateCache();
+    }
+
+    public static StringStore createStringStore(StorageConfig config) {
+        if (config.isRedisEnabled()) {
             JedisPool pool;
             if (config.getRedisPassword().isEmpty()) {
                 pool = new JedisPool(config.getRedisHost(), config.getRedisPort());
@@ -32,8 +39,8 @@ public final class StorageFactory {
                 pool = new JedisPool(new JedisPoolConfig(), config.getRedisHost(),
                     config.getRedisPort(), 2000, config.getRedisPassword());
             }
-            return new RedisRoomStateCache(new JedisStringStore(pool, REDIS_TTL_SECONDS));
+            return new JedisStringStore(pool, REDIS_TTL_SECONDS);
         }
-        return new InMemoryRoomStateCache();
+        return new InMemoryStringStore();
     }
 }

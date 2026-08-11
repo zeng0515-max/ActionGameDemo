@@ -1,0 +1,13 @@
+[
+  {
+    "characterName": "NineTailedFox",
+    "level": 1,
+    "maxHealth": 200,
+    "attackPower": 25,
+    "defense": 10,
+    "moveSpeed": 6,
+    "attackSpeed": 1.2,
+    "criticalRate": 0.15,
+    "criticalDamage": 2.0
+  }
+]

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package actiongame.protocol;
+
+import "common.proto";
+
+option java_package = "com.actiongame.server.proto";
+option java_outer_classname = "RoomProto";
+
+// 加入房间请求
+message JoinRoomReq {
+  int32 protocol_version = 1;
+  string player_id = 2;
+  string room_id = 3;
+}
+
+// 加入房间响应
+message JoinRoomResp {
+  int32 protocol_version = 1;
+  int32 code = 2;
+  string room_id = 3;
+  int32 player_entity_id = 4;
+  repeated CharacterSnapshot initial_characters = 5;
+  int32 start_frame_index = 6;
+  string redirect_node_id = 7;
+  string redirect_address = 8;
+}
+
+// 退出房间请求
+message LeaveRoomReq {
+  int32 protocol_version = 1;
+  string player_id = 2;
+  string room_id = 3;
+}
+
+// 其他玩家加入通知
+message PlayerJoinNotify {
+  int32 protocol_version = 1;
+  string player_id = 2;
+  string player_name = 3;
+  CharacterSnapshot player_snapshot = 4;
+}
+
+// 其他玩家离开通知
+message PlayerLeaveNotify {
+  int32 protocol_version = 1;
+  string player_id = 2;
+  int32 entity_id = 3;
+}

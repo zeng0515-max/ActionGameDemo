@@ -1,0 +1,29 @@
+[
+  {
+    "skillName": "Normal Attack",
+    "damageMultiplier": 1.0,
+    "cooldown": 0.5,
+    "range": 2.5,
+    "comboIndex": 0,
+    "canCancel": true,
+    "animationTriggerName": "Attack"
+  },
+  {
+    "skillName": "Heavy Strike",
+    "damageMultiplier": 2.5,
+    "cooldown": 8.0,
+    "range": 3.0,
+    "comboIndex": 0,
+    "canCancel": false,
+    "animationTriggerName": "Skill"
+  },
+  {
+    "skillName": "Ultimate Nova",
+    "damageMultiplier": 5.0,
+    "cooldown": 30.0,
+    "range": 8.0,
+    "comboIndex": 0,
+    "canCancel": false,
+    "animationTriggerName": "Ultimate"
+  }
+]

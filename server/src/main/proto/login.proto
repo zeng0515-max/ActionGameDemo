@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package actiongame.protocol;
+
+import "common.proto";
+
+option java_package = "com.actiongame.server.proto";
+option java_outer_classname = "LoginProto";
+
+// 登录请求
+message LoginReq {
+  int32 protocol_version = 1;
+  string token = 2;
+  string player_name = 3;
+  int32 character_config_id = 4;
+}
+
+// 登录响应
+message LoginResp {
+  int32 protocol_version = 1;
+  int32 code = 2;          // 0=success, <0=error code
+  string message = 3;
+  string player_id = 4;
+  string session_key = 5;
+  int32 server_min_version = 6;
+  int32 server_max_version = 7;
+}

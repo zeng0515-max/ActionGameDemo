@@ -76,5 +76,28 @@ class LoadTestPayloadsTest {
         assertThat(result.code()).isZero();
         assertThat(result.roomId()).isEqualTo("room-0");
         assertThat(result.entityId()).isEqualTo(7);
+        assertThat(result.redirectNodeId()).isEmpty();
+        assertThat(result.redirectAddress()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should_parseRedirectFields_when_responseContainsThem")
+    void should_parseRedirectFields_when_responseContainsThem() {
+        byte[] payload = new byte[4 + 4 + BinaryCodec.stringSize("room-0") + 4 + 4
+            + BinaryCodec.stringSize("node-2") + BinaryCodec.stringSize("game-node-2:9090")];
+        int offset = 0;
+        BinaryCodec.writeInt(payload, offset, 10); offset += 4;
+        BinaryCodec.writeInt(payload, offset, -3); offset += 4;
+        BinaryCodec.writeString(payload, offset, "room-0"); offset += BinaryCodec.stringSize("room-0");
+        BinaryCodec.writeInt(payload, offset, -1); offset += 4;
+        BinaryCodec.writeInt(payload, offset, 0); offset += 4;
+        BinaryCodec.writeString(payload, offset, "node-2"); offset += BinaryCodec.stringSize("node-2");
+        BinaryCodec.writeString(payload, offset, "game-node-2:9090");
+
+        LoadTestPayloads.JoinResult result = LoadTestPayloads.parseJoinResponse(payload);
+
+        assertThat(result.code()).isEqualTo(-3);
+        assertThat(result.redirectNodeId()).isEqualTo("node-2");
+        assertThat(result.redirectAddress()).isEqualTo("game-node-2:9090");
     }
 }

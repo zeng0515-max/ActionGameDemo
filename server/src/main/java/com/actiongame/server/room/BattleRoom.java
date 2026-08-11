@@ -8,9 +8,14 @@ import com.actiongame.server.config.ConfigLoader;
 import com.actiongame.server.config.MonsterConfig;
 import com.actiongame.server.config.SkillConfig;
 import com.actiongame.server.domain.character.Character;
+import com.actiongame.server.domain.character.CharacterState;
 import com.actiongame.server.domain.character.CharacterStats;
 import com.actiongame.server.domain.character.MonsterCharacter;
 import com.actiongame.server.domain.character.PlayerCharacter;
+import com.actiongame.server.domain.buff.AttributeType;
+import com.actiongame.server.domain.buff.Buff;
+import com.actiongame.server.domain.buff.BuffStackingRule;
+import com.actiongame.server.domain.buff.BuffType;
 import com.actiongame.server.domain.combat.ElementType;
 import com.actiongame.server.domain.combat.HitResult;
 import com.actiongame.server.net.session.GameSession;
@@ -20,6 +25,7 @@ import com.actiongame.server.persistence.MatchResult;
 import com.actiongame.server.persistence.MatchResultRepository;
 import com.actiongame.server.persistence.RoomState;
 import com.actiongame.server.persistence.RoomStateCache;
+import com.actiongame.server.util.Quaternion;
 import com.actiongame.server.util.Vector3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,11 +76,13 @@ public class BattleRoom implements FrameExecutor {
     private final AtomicInteger entityIdGenerator = new AtomicInteger(1);
     private volatile long currentFrameIndex = 0;
     private volatile long startTimeMs = 0;
+    private volatile boolean migrationHold = false;
 
     private final List<PendingAction> pendingActions = new ArrayList<>();
     private final ReentrantLock pendingActionsLock = new ReentrantLock();
 
     private static final int MAX_PLAYERS = 4;
+    private static final int SNAPSHOT_INTERVAL_FRAMES = 100;
 
     public BattleRoom(String roomId) {
         this(roomId, new InMemoryMatchResultRepository(), new InMemoryRoomStateCache());
@@ -127,7 +135,9 @@ public class BattleRoom implements FrameExecutor {
 
     public int addPlayer(PlayerCharacter character, GameSession session) {
         // 清理已断线玩家 (回收器只在帧循环里跑, 房间未开战时需要手动清理)
-        recycler.recycleOfflinePlayers(players, this::removePlayer);
+        if (!migrationHold) {
+            recycler.recycleOfflinePlayers(players, this::removePlayer);
+        }
 
         // 同一玩家重连: 先移除旧记录
         String newPlayerId = character.getPlayerId();
@@ -285,6 +295,319 @@ public class BattleRoom implements FrameExecutor {
         status.set(RoomStatus.CLOSED);
     }
 
+    // === 房间迁移 ===
+
+    public RoomSnapshot toSnapshot() {
+        List<RoomSnapshot.PlayerSnapshot> playerSnapshots = new ArrayList<>();
+        for (RoomPlayer player : players) {
+            playerSnapshots.add(toPlayerSnapshot((PlayerCharacter) player.getCharacter()));
+        }
+        List<RoomSnapshot.MonsterSnapshot> monsterSnapshots = new ArrayList<>();
+        for (RoomMonster monster : monsters) {
+            monsterSnapshots.add(toMonsterSnapshot(monster));
+        }
+        return new RoomSnapshot(
+            roomId,
+            status.get().name(),
+            currentFrameIndex,
+            startTimeMs,
+            entityIdGenerator.get(),
+            playerSnapshots,
+            monsterSnapshots
+        );
+    }
+
+    public void restoreFromSnapshot(RoomSnapshot snapshot) {
+        currentFrameIndex = snapshot.currentFrameIndex();
+        startTimeMs = snapshot.startTimeMs();
+        entityIdGenerator.set(Math.max(1, snapshot.nextEntityId()));
+
+        for (RoomSnapshot.PlayerSnapshot player : snapshot.players()) {
+            restorePlayer(player);
+        }
+        for (RoomSnapshot.MonsterSnapshot monster : snapshot.monsters()) {
+            restoreMonster(monster);
+        }
+
+        status.set(RoomStatus.valueOf(snapshot.status()));
+        migrationHold = true;
+        log.info("Room {} restored from snapshot, frame={}, players={}, monsters={}",
+            roomId, currentFrameIndex, players.size(), monsters.size());
+    }
+
+    public void suspendForMigration() {
+        scheduler.stop();
+        log.info("Room {} suspended for migration", roomId);
+    }
+
+    public void resumeBattle() {
+        if (status.get() == RoomStatus.BATTLE) {
+            scheduler.start();
+        }
+    }
+
+    private RoomSnapshot.PlayerSnapshot toPlayerSnapshot(PlayerCharacter character) {
+        return new RoomSnapshot.PlayerSnapshot(
+            character.getEntityId(),
+            character.getPlayerId(),
+            character.getConfigId(),
+            character.getLevel(),
+            character.getCurrentExp(),
+            character.getAvailableSkillPoints(),
+            character.getState().name(),
+            character.getPosition().x,
+            character.getPosition().y,
+            character.getPosition().z,
+            character.getRotation().x,
+            character.getRotation().y,
+            character.getRotation().z,
+            character.getRotation().w,
+            character.getElementType().name(),
+            character.getShieldAmount(),
+            character.isInvincible(),
+            character.isDead(),
+            character.getTargetEntityId(),
+            character.getComboStep(),
+            toStatsSnapshot(character.getStats()),
+            toBuffSnapshots(activeBuffsOf(character.getEntityId()))
+        );
+    }
+
+    private RoomSnapshot.MonsterSnapshot toMonsterSnapshot(RoomMonster roomMonster) {
+        MonsterCharacter character = roomMonster.getCharacter();
+        return new RoomSnapshot.MonsterSnapshot(
+            character.getEntityId(),
+            character.getConfigId(),
+            roomMonster.getAiController() instanceof com.actiongame.server.ai.decision.BossAIController,
+            character.getState().name(),
+            character.getPosition().x,
+            character.getPosition().y,
+            character.getPosition().z,
+            character.getRotation().x,
+            character.getRotation().y,
+            character.getRotation().z,
+            character.getRotation().w,
+            character.getElementType().name(),
+            character.getShieldAmount(),
+            character.isInvincible(),
+            character.isDead(),
+            character.getTargetEntityId(),
+            character.getComboStep(),
+            character.getMonsterType(),
+            character.getDetectionRange(),
+            character.getAttackRange(),
+            character.getAttackCooldown(),
+            character.getPatrolRadius(),
+            character.getFleeThreshold(),
+            roomMonster.getAiController().getConfig().getEnemyName(),
+            toStatsSnapshot(character.getStats()),
+            toBuffSnapshots(activeBuffsOf(character.getEntityId()))
+        );
+    }
+
+    private List<Buff> activeBuffsOf(int entityId) {
+        BuffEngine engine = buffEngines.get(entityId);
+        return engine == null ? List.of() : engine.getActiveBuffs();
+    }
+
+    private RoomSnapshot.StatsSnapshot toStatsSnapshot(CharacterStats stats) {
+        return new RoomSnapshot.StatsSnapshot(
+            stats.getMaxHealth(),
+            stats.getCurrentHealth(),
+            stats.getAttackPower(),
+            stats.getDefense(),
+            stats.getMoveSpeed(),
+            stats.getCriticalRate(),
+            stats.getCriticalDamageMultiplier(),
+            stats.getMaxEnergy(),
+            stats.getCurrentEnergy()
+        );
+    }
+
+    private List<RoomSnapshot.BuffSnapshot> toBuffSnapshots(List<Buff> buffs) {
+        List<RoomSnapshot.BuffSnapshot> snapshots = new ArrayList<>();
+        for (Buff buff : buffs) {
+            snapshots.add(new RoomSnapshot.BuffSnapshot(
+                buff.getBuffId(),
+                buff.getBuffName(),
+                buff.getBuffType().name(),
+                buff.getDuration(),
+                buff.getRemainingTime(),
+                buff.getStacks(),
+                buff.getMaxStacks(),
+                buff.getStackingRule().name(),
+                buff.getTickInterval(),
+                buff.getTickValuePercent(),
+                buff.getAttributeType().name(),
+                buff.getAttributeModifier(),
+                buff.getShieldValue(),
+                buff.getRelatedElement().name(),
+                buff.getTargetEntityId(),
+                buff.getSourceEntityId(),
+                buff.isActive()
+            ));
+        }
+        return snapshots;
+    }
+
+    private void restoreBuffs(Character character, List<RoomSnapshot.BuffSnapshot> buffSnapshots) {
+        if (buffSnapshots == null) return;
+        BuffEngine engine = buffEngines.get(character.getEntityId());
+        if (engine == null) return;
+
+        for (RoomSnapshot.BuffSnapshot snapshot : buffSnapshots) {
+            if (!snapshot.active()) continue;
+            Buff buff = new Buff(
+                snapshot.buffId(),
+                snapshot.buffName(),
+                parseBuffType(snapshot.buffType()),
+                snapshot.duration(),
+                snapshot.maxStacks(),
+                parseStackingRule(snapshot.stackingRule()),
+                snapshot.tickInterval(),
+                snapshot.tickValuePercent(),
+                parseAttributeType(snapshot.attributeType()),
+                snapshot.attributeModifier(),
+                snapshot.shieldValue(),
+                parseElement(snapshot.relatedElement())
+            );
+            buff.setRemainingTime(snapshot.remainingTime());
+            buff.setStacks(snapshot.stacks());
+            buff.setTargetEntityId(snapshot.targetEntityId());
+            buff.setSourceEntityId(snapshot.sourceEntityId());
+            buff.setActive(true);
+
+            Character source = entityMap.get(snapshot.sourceEntityId());
+            engine.restoreBuff(buff, source);
+        }
+    }
+
+    private static BuffType parseBuffType(String value) {
+        try {
+            return BuffType.valueOf(value);
+        } catch (Exception e) {
+            return BuffType.ATTRIBUTE;
+        }
+    }
+
+    private static BuffStackingRule parseStackingRule(String value) {
+        try {
+            return BuffStackingRule.valueOf(value);
+        } catch (Exception e) {
+            return BuffStackingRule.REFRESH_DURATION;
+        }
+    }
+
+    private static AttributeType parseAttributeType(String value) {
+        try {
+            return AttributeType.valueOf(value);
+        } catch (Exception e) {
+            return AttributeType.ATTACK_POWER;
+        }
+    }
+
+    private void restorePlayer(RoomSnapshot.PlayerSnapshot snapshot) {
+        CharacterStats stats = restoreStats(snapshot.stats());
+        PlayerCharacter character = new PlayerCharacter(
+            snapshot.entityId(), snapshot.configId(), stats, snapshot.playerId());
+        character.setLevel(snapshot.level());
+        character.setCurrentExp(snapshot.currentExp());
+        character.setAvailableSkillPoints(snapshot.availableSkillPoints());
+        applyCharacterSnapshot(character, snapshot);
+
+        RoomPlayer player = new RoomPlayer(snapshot.entityId(), character, null);
+        players.add(player);
+        playerByEntityId.put(snapshot.entityId(), player);
+        entityMap.put(snapshot.entityId(), character);
+        buffEngines.put(snapshot.entityId(), new BuffEngine(character));
+        restoreBuffs(character, snapshot.buffs());
+    }
+
+    private void restoreMonster(RoomSnapshot.MonsterSnapshot snapshot) {
+        CharacterStats stats = restoreStats(snapshot.stats());
+        MonsterCharacter monster = new MonsterCharacter(snapshot.entityId(), snapshot.configId(), stats);
+        monster.setMonsterType(snapshot.monsterType());
+        monster.setDetectionRange(snapshot.detectionRange());
+        monster.setAttackRange(snapshot.attackRange());
+        monster.setAttackCooldown(snapshot.attackCooldown());
+        monster.setPatrolRadius(snapshot.patrolRadius());
+        monster.setFleeThreshold(snapshot.fleeThreshold());
+        applyCharacterSnapshot(monster, snapshot);
+
+        MonsterConfig config = new MonsterConfig();
+        config.setEnemyName(snapshot.enemyName());
+        config.setMaxHealth(stats.getMaxHealth());
+        config.setAttackPower(stats.getAttackPower());
+        config.setDefense(stats.getDefense());
+        config.setMoveSpeed(stats.getMoveSpeed());
+        config.setDetectionRange(snapshot.detectionRange());
+        config.setAttackRange(snapshot.attackRange());
+        config.setAttackCooldown(snapshot.attackCooldown());
+        config.setPatrolRadius(snapshot.patrolRadius());
+        config.setFleeThreshold(snapshot.fleeThreshold());
+
+        RoomMonster roomMonster = new RoomMonster(monster, config, snapshot.boss());
+        roomMonster.initialize();
+        monsters.add(roomMonster);
+        entityMap.put(snapshot.entityId(), monster);
+        buffEngines.put(snapshot.entityId(), new BuffEngine(monster));
+        restoreBuffs(monster, snapshot.buffs());
+    }
+
+    private void applyCharacterSnapshot(Character character, RoomSnapshot.PlayerSnapshot snapshot) {
+        character.setDead(snapshot.dead());
+        character.setState(parseState(snapshot.state()));
+        character.setPosition(new Vector3(snapshot.posX(), snapshot.posY(), snapshot.posZ()));
+        character.setRotation(new Quaternion(
+            snapshot.rotX(), snapshot.rotY(), snapshot.rotZ(), snapshot.rotW()));
+        character.setElementType(parseElement(snapshot.element()));
+        character.setInvincible(snapshot.invincible());
+        character.setTargetEntityId(snapshot.targetEntityId());
+        character.setComboStep(snapshot.comboStep());
+    }
+
+    private void applyCharacterSnapshot(Character character, RoomSnapshot.MonsterSnapshot snapshot) {
+        character.setDead(snapshot.dead());
+        character.setState(parseState(snapshot.state()));
+        character.setPosition(new Vector3(snapshot.posX(), snapshot.posY(), snapshot.posZ()));
+        character.setRotation(new Quaternion(
+            snapshot.rotX(), snapshot.rotY(), snapshot.rotZ(), snapshot.rotW()));
+        character.setElementType(parseElement(snapshot.element()));
+        character.setInvincible(snapshot.invincible());
+        character.setTargetEntityId(snapshot.targetEntityId());
+        character.setComboStep(snapshot.comboStep());
+    }
+
+    private CharacterStats restoreStats(RoomSnapshot.StatsSnapshot snapshot) {
+        CharacterStats stats = new CharacterStats(
+            snapshot.maxHealth(),
+            snapshot.attackPower(),
+            snapshot.defense(),
+            snapshot.moveSpeed(),
+            snapshot.criticalRate(),
+            snapshot.criticalDamageMultiplier());
+        stats.setMaxEnergy(snapshot.maxEnergy());
+        stats.setCurrentEnergy(snapshot.currentEnergy());
+        stats.setCurrentHealth(snapshot.currentHealth());
+        return stats;
+    }
+
+    private static CharacterState parseState(String state) {
+        try {
+            return CharacterState.valueOf(state);
+        } catch (Exception e) {
+            return CharacterState.IDLE;
+        }
+    }
+
+    private static ElementType parseElement(String element) {
+        try {
+            return ElementType.valueOf(element);
+        } catch (Exception e) {
+            return ElementType.NONE;
+        }
+    }
+
     // === 玩家操作 ===
 
     public void submitPlayerAction(int entityId, int actionType, float moveX, float moveZ,
@@ -347,7 +670,10 @@ public class BattleRoom implements FrameExecutor {
 
         // 4. 资源回收
         recycler.recycleDeadMonsters(monsters);
-        recycler.recycleOfflinePlayers(players, this::removePlayer);
+        updateMigrationHold();
+        if (!migrationHold) {
+            recycler.recycleOfflinePlayers(players, this::removePlayer);
+        }
 
         // 5. 更新反作弊追踪 (玩家位置)
         for (RoomPlayer rp : players) {
@@ -362,6 +688,18 @@ public class BattleRoom implements FrameExecutor {
 
         // 8. 检查战斗结束
         checkBattleEnd();
+
+        // 9. 周期性写入迁移快照
+        persistSnapshotIfNeeded();
+    }
+
+    private void persistSnapshotIfNeeded() {
+        if (currentFrameIndex % SNAPSHOT_INTERVAL_FRAMES != 0) return;
+        try {
+            roomStateCache.putSnapshot(roomId, toSnapshot());
+        } catch (Exception e) {
+            log.warn("Failed to persist room snapshot for {}: {}", roomId, e.getMessage());
+        }
     }
 
     private void processPendingActions(float deltaTime) {
@@ -394,6 +732,15 @@ public class BattleRoom implements FrameExecutor {
                 case 5 -> executePlayerAttack(pc, 2);   // Ultimate (Nova)
                 case 6 -> pc.setState(com.actiongame.server.domain.character.CharacterState.DODGE);
             }
+        }
+    }
+
+    private void updateMigrationHold() {
+        if (!migrationHold) return;
+        boolean allPlayersActive = players.stream()
+            .allMatch(player -> player.getSession() != null && player.getSession().isActive());
+        if (allPlayersActive) {
+            migrationHold = false;
         }
     }
 
